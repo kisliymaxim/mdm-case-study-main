@@ -3,36 +3,43 @@ set -e
 
 cd /var/www/html
 
-# Install deps if vendor missing (first run / fresh clone)
-if [ ! -d "vendor" ]; then
-    echo "[entrypoint] composer install"
-    composer install --no-interaction --prefer-dist --optimize-autoloader
-fi
-
-# .env: copy example if missing, generate key if empty
+# 1 .env first.
 if [ ! -f ".env" ]; then
     echo "[entrypoint] .env missing, copying .env.example"
     cp .env.example .env
 fi
 
+# 2 Vendor deps.
+if [ ! -f "vendor/autoload.php" ]; then
+    echo "[entrypoint] vendor/autoload.php missing — running composer install"
+    composer install --no-interaction --prefer-dist --optimize-autoloader
+else
+    echo "[entrypoint] vendor/ present — refreshing autoload"
+    composer dump-autoload --optimize --no-scripts
+fi
+
+# 3 APP_KEY.
 if ! grep -q "^APP_KEY=base64:" .env; then
     echo "[entrypoint] generating APP_KEY"
     php artisan key:generate --force
 fi
 
-# Seed mock JSON if missing
-if [ ! -f "storage/app/jamf/api-mock-response.json" ] && [ -f "files/api-mock-response.json" ]; then
-    mkdir -p storage/app/jamf
-    cp files/api-mock-response.json storage/app/jamf/api-mock-response.json
+# 4 Seed mock JSON if missing.
+if [ ! -f "storage/app/jamf/api-mock-response.json" ]; then
+    if [ -f ".assignment/api-mock-response.json" ]; then
+        echo "[entrypoint] seeding mock JSON from .assignment/"
+        mkdir -p storage/app/jamf
+        cp .assignment/api-mock-response.json storage/app/jamf/api-mock-response.json
+    else
+        echo "[entrypoint] WARNING: no mock JSON found (.assignment/api-mock-response.json missing)"
+    fi
 fi
 
-# Drop any cached config/routes from prior boots so compose env wins.
+# 5 Drop any cached config/routes from prior boots so compose env wins.
 echo "[entrypoint] clearing cached config + routes"
 php artisan optimize:clear || true
 
-# Wait for MySQL via PDO. We use PHP (pdo_mysql) instead of mysqladmin
-# because Alpine's mysql-client package doesn't always ship the admin
-# binary, and we need authenticated reach anyway.
+# 6 Wait for MySQL via PDO
 if [ -n "$DB_HOST" ]; then
     echo "[entrypoint] waiting for mysql at $DB_HOST:${DB_PORT:-3306}..."
     ATTEMPTS=0
@@ -59,12 +66,12 @@ if [ -n "$DB_HOST" ]; then
     echo "[entrypoint] mysql up"
 fi
 
-# Migrate (idempotent)
+# 7 Migrate (idempotent).
 if [ "$RUN_MIGRATIONS" = "true" ]; then
     php artisan migrate --force
 fi
 
-# Permissions
+# 8 Permissions.
 chown -R www-data:www-data storage bootstrap/cache 2>/dev/null || true
 chmod -R ug+rwx storage bootstrap/cache 2>/dev/null || true
 

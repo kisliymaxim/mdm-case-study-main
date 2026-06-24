@@ -46,7 +46,7 @@ Seven containers come up:
 
 Then open **http://localhost:5173** in your browser.
 
-The Laravel entrypoint (`docker/app/entrypoint.sh`) runs `composer install`, generates `APP_KEY`, waits for MySQL, runs migrations, and seeds `storage/app/jamf/api-mock-response.json` from `files/`. The `ui` container runs `npm install` on first boot.
+The Laravel entrypoint (`docker/app/entrypoint.sh`) runs `composer install`, generates `APP_KEY`, waits for MySQL, runs migrations, and seeds `storage/app/jamf/api-mock-response.json` from `.assignment/`. The `ui` container runs `npm install` on first boot.
 
 > First boot is 1–3 minutes (image builds + composer + npm). Subsequent boots are seconds.
 
