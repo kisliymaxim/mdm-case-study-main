@@ -35,13 +35,23 @@ final class StatsService
      */
     private function build(): array
     {
+        $lastImport = Import::query()->latest('created_at')->first();
+
         return [
             'counts' => [
                 'assets' => Asset::query()->count(),
                 'employees' => Employee::query()->count(),
                 'imports' => Import::query()->count(),
             ],
-            'last_import' => Import::query()->latest('created_at')->first(),
+            'last_import' => $lastImport ? [
+                'id' => $lastImport->id,
+                'provider' => $lastImport->provider,
+                'status' => $lastImport->status,
+                'summary' => $lastImport->summary,
+                'error' => $lastImport->error,
+                'started_at' => $lastImport->started_at?->toIso8601String(),
+                'finished_at' => $lastImport->finished_at?->toIso8601String(),
+            ] : null,
         ];
     }
 }
