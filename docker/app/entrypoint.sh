@@ -11,10 +11,24 @@ fi
 
 # 2 Vendor deps.
 if [ ! -f "vendor/autoload.php" ]; then
-    echo "[entrypoint] vendor/autoload.php missing — running composer install"
-    composer install --no-interaction --prefer-dist --optimize-autoloader
-else
-    echo "[entrypoint] vendor/ present — refreshing autoload"
+    if [ "$INSTALL_DEPS" = "true" ]; then
+        echo "[entrypoint] leader: running composer install"
+        composer install --no-interaction --prefer-dist --optimize-autoloader
+    else
+        echo "[entrypoint] follower: waiting for leader to install vendor/..."
+        WAIT=0
+        until [ -f "vendor/autoload.php" ]; do
+            WAIT=$((WAIT + 1))
+            if [ "$WAIT" -ge 180 ]; then
+                echo "[entrypoint] vendor/autoload.php still missing after 180s — giving up"
+                exit 1
+            fi
+            sleep 1
+        done
+        echo "[entrypoint] vendor ready"
+    fi
+elif [ "$INSTALL_DEPS" = "true" ]; then
+    echo "[entrypoint] leader: refreshing autoload"
     composer dump-autoload --optimize --no-scripts
 fi
 
